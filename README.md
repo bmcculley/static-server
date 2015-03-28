@@ -2,6 +2,12 @@
 
 A HTTP server written in Java to serve static files
 
+Compile:
+  javac *.java
+
+Create a jar:
+  jar -cfm webserver.jar Maninfest.txt *.class
+
 ### TODO:
  * ~~Update~~ Create documentation
  * Add logging
