@@ -24,6 +24,7 @@ public final class HttpRequest implements Runnable
     String contentDirectory = "content";
     String defaultFile = "index.html";
     String error404File = null;
+    Boolean listDirectory = false;
     
     //Constructor
     public HttpRequest(Socket socket) throws Exception
@@ -40,6 +41,7 @@ public final class HttpRequest implements Runnable
             // check if setting exists, if it does load it
             contentDirectory = cfgSettings.getProperty("contentDirectory");
             defaultFile = cfgSettings.getProperty("defaultFile");
+            listDirectory = Boolean.valueOf(cfgSettings.getProperty("listFiles"));
             //error404File = cfgSettings.getProperty("error404File");
         }
         catch (IOException ex) {
@@ -77,6 +79,26 @@ public final class HttpRequest implements Runnable
         }
     }
     
+    public void walk( String path ) {
+
+        File root = new File( path );
+        File[] list = root.listFiles();
+
+        if (list == null) return;
+
+        for ( File f : list ) {
+            if ( f.isDirectory() ) {
+                walk( f.getAbsolutePath() );
+                System.out.println( "Dir:" + f.getAbsolutePath() );
+                
+            }
+            else {
+            		System.out.println( "File:" + f.getAbsolutePath() );
+            		
+            }
+        }
+    }
+    
     private void processRequest() throws Exception
     {
         // Get a reference to the socket's input and output streams.
@@ -107,6 +129,7 @@ public final class HttpRequest implements Runnable
         tokens.nextToken();
         
         String fileName = tokens.nextToken();
+        String origFileName = "";
 
         // if no path (filename) set to index
         if (fileName.trim().length() == 0 || fileName.equals("/"))
@@ -121,9 +144,21 @@ public final class HttpRequest implements Runnable
         FileInputStream fis = null;
         boolean fileExists = true;
         
-        try
+        File testFile = new File(fileName);
+        
+        if ( testFile.isFile() )
         {
-            fis = new FileInputStream(fileName);
+        		// idk?
+        }
+        else if ( testFile.isDirectory() )
+        {
+        		origFileName = fileName;
+        		fileName = fileName + "/" + defaultFile;
+        }
+        
+        try
+        {		
+        		fis = new FileInputStream(fileName);
         }
         catch(FileNotFoundException e)
         {
@@ -140,18 +175,28 @@ public final class HttpRequest implements Runnable
             statusLine = "HTTP/1.1 200 OK: ";
             contentTypeLine = "Content-type: " + contentType(fileName) + CRLF;
         }
+        else if (testFile.isDirectory() && listDirectory)
+        {
+        		// need to check if directory contents should be listed and...
+        		// also check if there is an index file to display
+        		statusLine = "HTTP/1.1 200 OK: ";
+            contentTypeLine = "Content-Type: text/html" + CRLF;
+            entityBody = "<!DOCTYPE html>" + "<head><title>Directory Listing</title></head>" + "<body><p>List Directory Contents</p></body></html>";
+            
+            walk(origFileName);
+        }
         else
         {
             statusLine = "HTTP/1.1 404 Not Found: ";
             contentTypeLine = "Content-Type: text/html" + CRLF;
-            entityBody = "<!DOCTYPE html>" + "<head><title>Not Found</title></head>" + "<body><p>Not Found</p></body></html>";
+            entityBody = "<!DOCTYPE html>" + "<head><title>Page Not Found</title></head>" + "<body><h1>Something went all wonky there</h1><p>Page not Found</p></body></html>";
         }
         
         //Send the status line
-        os. writeBytes(statusLine);
+        os.writeBytes(statusLine);
         
         //Send the content type line
-        os. writeBytes(contentTypeLine);
+        os.writeBytes(contentTypeLine);
         
         //Send a blank line to indicate the end of the header lines.
         os.writeBytes(CRLF);
@@ -188,23 +233,33 @@ public final class HttpRequest implements Runnable
     
     private static String contentType(String fileName)
     {
-        if(fileName.endsWith(".htm") || fileName.endsWith(".html"))
+        if (fileName.endsWith(".htm") || fileName.endsWith(".html") || fileName.endsWith(".xhtml"))
         {
             return "text/html";
         }
-        if(fileName.endsWith(".gif"))
+        else if (fileName.endsWith(".css"))
+        {
+            return "text/css";
+        }
+        else if (fileName.endsWith(".js"))
+        {
+            return "text/js";
+        }
+        else if (fileName.endsWith(".gif"))
         {
             return "image/gif";
         }
-        if(fileName.endsWith(".jpg"))
+        else if (fileName.endsWith(".jpg"))
         {
             return "image/jpeg";
         }
-        if(fileName.endsWith(".png"))
+        else if (fileName.endsWith(".png"))
         {
             return "image/png";
         }
-        
-        return "application/octet-stream";
+        else
+        {
+        		return "application/octet-stream";
+        }
     }
 }

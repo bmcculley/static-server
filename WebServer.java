@@ -15,13 +15,32 @@ public final class WebServer
 {
     public static void main(String argv[]) throws Exception
     {
-        //Set port number
-        int port = 8000;
+        //Set default port number
+        int port = 80;
+        
+        // load in the settings
+        Properties cfgSettings = new Properties();
+        InputStream cfgIn = null;
+        
+        try
+        {
+            cfgIn = new FileInputStream("settings.cfg");
+            cfgSettings.load(cfgIn);
+            // set to run on a different port
+            String portstr = cfgSettings.getProperty("port");
+            if(portstr != null && !portstr.isEmpty()) {
+            	port = Integer.parseInt(portstr);
+            }
+        }
+        catch (IOException ex) {
+            // log error
+            ex.printStackTrace();
+        }
         
         //Establish listen socket
         ServerSocket listenSocket = new ServerSocket(port);
         
-        System.out.println("Starting server...\n");
+        System.out.println("Starting server on port "+port+"\n");
         
         //Process HTTP service requests in an infinite loop
         while(true)
