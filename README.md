@@ -8,6 +8,10 @@ Compile:
 Create a jar:
   jar -cfm webserver.jar Manifest.txt *.class
 
+## Javadocs
+
+Some documentation of the public methods can be found [here](https://bmcculley.github.io/staticserver/docs/).
+
 ### TODO:
  * ~~Update~~ Create documentation
  * Add logging
