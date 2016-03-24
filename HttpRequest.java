@@ -1,18 +1,14 @@
 /**
  * handles the main processing for the web server
- *
- * Default settings:
- *   main content directory is "content"
- *   defaults to checking for an "index.html" file
- *
- * user settings can be loaded in from a "settings.cfg"
  *  
  * original code created by Hardik Patel- 2/25/14
  *
  * Updated code by Blake McCulley
  *
  */
-
+ 
+// needs to be updated to only include 
+// necessary imports
 import java.io.*;
 import java.net.*;
 import java.util.*;
@@ -21,52 +17,45 @@ public final class HttpRequest implements Runnable
 {
     final static String CRLF = "\r\n";
     Socket socket;
-    String contentDirectory = "content";
-    String defaultFile = "index.html";
-    String error404File = null;
-    Boolean listDirectory = false;
+    String contentDirectory;
+    String defaultFile;
+    String error404File;
+    Boolean listDirectory;
     
-    //Constructor
-    public HttpRequest(Socket socket) throws Exception
+    /**
+     * Constructor - creates the HttpRequest object
+     *
+     * @param socket 
+     *           expects to recieve an TCPsocket port to run on
+     * @param contentDirectory 
+     *           Default directory were HTML content will be served from.
+     *           (type String)
+     * @param defaultFile 
+     *           Default file that will be looked for and served.
+     *           (type String)
+     * @param listDirectory 
+     *           Boolean value of whether to list directory contents.
+     * @throws java.lang.Exception
+     *           Throws an exception if an error is encountered
+     */
+    public HttpRequest( Socket socket,
+                        String contentDirectory,
+                        String defaultFile,
+                        Boolean listDirectory)
+                    throws Exception
     {
         this.socket = socket;
-        // load in the settings
-        Properties cfgSettings = new Properties();
-        InputStream cfgIn = null;
-        
-        try
-        {
-            cfgIn = new FileInputStream("settings.cfg");
-            cfgSettings.load(cfgIn);
-            // check if setting exists, if it does load it
-            contentDirectory = cfgSettings.getProperty("contentDirectory");
-            defaultFile = cfgSettings.getProperty("defaultFile");
-            listDirectory = Boolean.valueOf(cfgSettings.getProperty("listFiles"));
-            //error404File = cfgSettings.getProperty("error404File");
-        }
-        catch (IOException ex) {
-            // log error
-            ex.printStackTrace();
-        }
-        finally
-        {
-            if (cfgIn != null)
-            {
-                try
-                {
-                    cfgIn.close();
-                }
-                catch (IOException e)
-                {
-                    // log error
-                    e.printStackTrace();
-                }
-            }
-        }
-        
+        this.contentDirectory = contentDirectory;
+        this.defaultFile = defaultFile;
+        this.listDirectory = listDirectory;
     }
     
-    //Impplement the run() method of the Runnable interface
+    /**
+     * Impplement the run() method of the Runnable interface
+     * <p>
+     * Fires up the <code>processRequest</code> method.
+     *
+     */
     public void run()
     {
         try
@@ -79,26 +68,62 @@ public final class HttpRequest implements Runnable
         }
     }
     
-    public void walk( String path ) {
+    /**
+     * Walk the directory provided in the URL path
+     * <p>
+     * If listDirectory is set to true 
+     * in the <code>settings.cfg</code> this should return the 
+     * directory contents as an unordered list to be shown to the end user.
+     *
+     * @param path URL path to currently requested directory as String
+     * @return HTML unordered list of files and directories
+     */
+    public String walk( String path ) {
 
         File root = new File( path );
         File[] list = root.listFiles();
+        String listing = "<ul>";
 
-        if (list == null) return;
-
-        for ( File f : list ) {
-            if ( f.isDirectory() ) {
-                walk( f.getAbsolutePath() );
-                System.out.println( "Dir:" + f.getAbsolutePath() );
-                
-            }
-            else {
-            		System.out.println( "File:" + f.getAbsolutePath() );
-            		
-            }
-        }
+        if (list == null)
+        {
+        		// maybe this should throw an error instead
+        		return "";
+				}
+				else
+				{
+		        for ( File f : list )
+		        {
+		            if ( f.isDirectory() )
+		            {
+		                walk( f.getAbsolutePath() );
+		                System.out.println( "Dir:" + f.getAbsolutePath() );
+		                listing += "<li>Dir:" + f.getAbsolutePath()+"</li>";
+		            }
+		            else
+		            {
+		            		System.out.println( "File:" + f.getAbsolutePath() );
+		            		listing += "<li>File:" + f.getAbsolutePath()+"</li>";
+		            }
+		        }
+		        listing += "</ul>";
+		        return listing;
+		    }
     }
     
+    /**
+     * Does all of the heavy lifting.
+     *
+     * Get the HTTP request, outputs this to the command line 
+     * Determines if the file/path exists, and whether it should
+     * append the default file name.
+     * <p>
+     * Finally it determines the proper output response and delivers
+     * that back to the socket.
+     * 
+     * TODO: Add properly formatted logging. Location of log file 
+     * should be determined by admin and set in <code>settings.cfg</code>
+     *
+     */
     private void processRequest() throws Exception
     {
         // Get a reference to the socket's input and output streams.
@@ -112,8 +137,7 @@ public final class HttpRequest implements Runnable
         String requestLine = br.readLine();
         
         // Display the request line.
-        System.out.println();
-        System.out.println(requestLine);
+        System.out.println("\n" + requestLine);
         
         // Get and display the header lines.
         String headerLine = null;
@@ -181,15 +205,17 @@ public final class HttpRequest implements Runnable
         		// also check if there is an index file to display
         		statusLine = "HTTP/1.1 200 OK: ";
             contentTypeLine = "Content-Type: text/html" + CRLF;
-            entityBody = "<!DOCTYPE html>" + "<head><title>Directory Listing</title></head>" + "<body><p>List Directory Contents</p></body></html>";
+            entityBody = "<!DOCTYPE html>" + "<head><title>Directory Listing</title></head>" + 
+            						 "<body><h1>List Directory Contents</h1><hr/>"+walk(origFileName)+
+            						 "<hr/><p>Served by <a href=\"#!\">xyz</a></p></body></html>";
             
-            walk(origFileName);
         }
         else
         {
             statusLine = "HTTP/1.1 404 Not Found: ";
             contentTypeLine = "Content-Type: text/html" + CRLF;
-            entityBody = "<!DOCTYPE html>" + "<head><title>Page Not Found</title></head>" + "<body><h1>Something went all wonky there</h1><p>Page not Found</p></body></html>";
+            entityBody = "<!DOCTYPE html>" + "<head><title>Page Not Found</title></head>" + 
+                         "<body><h1>Something went all wonky there</h1><p>Page not Found</p></body></html>";
         }
         
         //Send the status line
@@ -218,6 +244,10 @@ public final class HttpRequest implements Runnable
         socket.close();
     }
     
+    /**
+     * Send the bytes!
+     *
+     */
     private static void sendBytes(FileInputStream fis, OutputStream os) throws Exception
     {
         //Construct a 1K buffer to hold bytes on their way to the socket
@@ -231,7 +261,16 @@ public final class HttpRequest implements Runnable
         }
     }
     
-    private static String contentType(String fileName)
+    /**
+     * Returns the content MIME header based on file name
+     *
+     * Parses the file location string and tries to determine the file type 
+     * based on the file externsion.
+     *
+     * @param fileName file location string with file extension.
+     * @return Header MIME type
+     */
+    public static String contentType(String fileName)
     {
         if (fileName.endsWith(".htm") || fileName.endsWith(".html") || fileName.endsWith(".xhtml"))
         {
